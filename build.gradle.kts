@@ -8,11 +8,11 @@ plugins {
 	id("com.vanniktech.maven.publish") version "0.33.0"
 }
 
-val pluginGroupId = "com.github.ansgrb"
+val pluginGroupId = "io.github.ansgrb"
 val pluginArtifactId = "iconsync"
 val pluginVersion = "1.0.0"
 
-group = "com.github.ansgrb"
+group = "io.github.ansgrb"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -35,8 +35,8 @@ kotlin {
 gradlePlugin {
 	plugins {
 		create("iconsync") {
-			id = "com.github.ansgrb.iconsync"
-			implementationClass = "com.github.ansgrb.iconsync.IconSyncPlugin"
+			id = "io.github.ansgrb"
+			implementationClass = "io.github.ansgrb.iconsync.IconSyncPlugin"
 			displayName = "KMP iOS IconSync Plugin"
 			description =
 				"A Gradle plugin to automatically sync Android launcher icons to the iOS part of a Kotlin Multiplatform project."

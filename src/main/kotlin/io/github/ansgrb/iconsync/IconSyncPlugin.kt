@@ -1,4 +1,4 @@
-package com.github.ansgrb.iconsync
+package io.github.ansgrb.iconsync
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.Plugin
