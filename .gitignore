@@ -6,6 +6,7 @@ build/
 gradle.properties
 
 ### IntelliJ IDEA ###
+.idea
 .idea/modules.xml
 .idea/jarRepositories.xml
 .idea/compiler.xml
@@ -16,6 +17,7 @@ gradle.properties
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+.env
 
 ### Kotlin ###
 .kotlin

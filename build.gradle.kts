@@ -10,10 +10,9 @@ plugins {
 
 val pluginGroupId = "io.github.ansgrb"
 val pluginArtifactId = "iconsync"
-val pluginVersion = "1.0.0"
+val pluginVersion = "1.0.1"
 
 group = "io.github.ansgrb"
-version = "1.0-SNAPSHOT"
 
 repositories {
 	mavenCentral()
@@ -35,7 +34,7 @@ kotlin {
 gradlePlugin {
 	plugins {
 		create("iconsync") {
-			id = "io.github.ansgrb"
+			id = "io.github.ansgrb.iconsync"
 			implementationClass = "io.github.ansgrb.iconsync.IconSyncPlugin"
 			displayName = "KMP iOS IconSync Plugin"
 			description =
