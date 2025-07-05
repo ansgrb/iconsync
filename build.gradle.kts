@@ -1,4 +1,6 @@
 plugins {
+	`kotlin-dsl`
+	`maven-publish`
 	kotlin("jvm") version "2.1.21"
 }
 
@@ -18,4 +20,12 @@ tasks.test {
 }
 kotlin {
 	jvmToolchain(21)
+}
+
+publishing {
+	repositories {
+		// This tells Gradle to publish to the local Maven repository
+		// typically located at ~/.m2/repository
+		mavenLocal()
+	}
 }
