@@ -1,0 +1,54 @@
+# .github/workflows/publish-release.yml
+
+name: Publish Release to Maven Central
+
+# This workflow is triggered whenever a new GitHub Release is created.
+on:
+  release:
+    types: [created]
+
+jobs:
+  publish:
+    name: Build and Publish Plugin
+    runs-on: ubuntu-latest
+    # Set permissions for the job to only read contents.
+    permissions:
+      contents: read
+
+    steps:
+      # 1. Checkout the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up JDK 17, which is required for modern Gradle builds
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 3. Configure Gradle Caching for faster builds
+      - name: Setup Gradle Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # 4. Grant execute permission to the Gradle wrapper script
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      # 5. Build, sign, and publish the artifact to Sonatype (Maven Central)
+      #    - The version is taken from the GitHub release tag.
+      #    - Secrets are passed securely as environment variables.
+      - name: Publish to Sonatype
+        run: ./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository -Pversion=${{ github.ref_name }}
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
