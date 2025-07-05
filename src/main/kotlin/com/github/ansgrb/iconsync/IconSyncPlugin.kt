@@ -11,7 +11,7 @@ import java.io.File
 import javax.inject.Inject
 import groovy.json.JsonOutput
 
-abstract class IconsyncPlugin : Plugin<Project> {
+abstract class IconSyncPlugin : Plugin<Project> {
 	override fun apply(project: Project) {
 		project.tasks.register("iconsync", ConvertAndCopyIconsTask::class.java) {
 			group = "iOS Icon Sync"

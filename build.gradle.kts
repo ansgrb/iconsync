@@ -22,6 +22,15 @@ kotlin {
 	jvmToolchain(21)
 }
 
+gradlePlugin {
+	plugins {
+		create("iconsync") {
+			id = "com.github.ansgrb.iconsync"
+			implementationClass = "com.github.ansgrb.iconsync.IconSyncPlugin"
+		}
+	}
+}
+
 publishing {
 	repositories {
 		// This tells Gradle to publish to the local Maven repository
