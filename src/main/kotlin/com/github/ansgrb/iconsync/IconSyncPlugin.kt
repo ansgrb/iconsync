@@ -40,34 +40,13 @@ private val IOS_ICON_SPECS = listOf(
 	IosIconSpec("1024x1024", "ios-marketing", "1x", "Icon-App-1024x1024@1x.png", 1024)
 )
 
-/**
- * A Gradle extension to allow users to configure the plugin from their build script.
- */
-interface IconSyncExtension {
-	val androidResDirectory: DirectoryProperty
-	val iosIconSetDirectory: DirectoryProperty
-}
-
 abstract class IconSyncPlugin : Plugin<Project> {
 	override fun apply(project: Project) {
-		// Create a configuration extension for users
-		val extension = project.extensions.create("iconSyncConfig", IconSyncExtension::class.java)
-
-		// Set sensible defaults for a typical KMP project
-		extension.androidResDirectory.convention(project.layout.projectDirectory.dir("composeApp/src/androidMain/res"))
-		extension.iosIconSetDirectory.convention(project.layout.projectDirectory.dir("iosApp/iosApp/Assets.xcassets/AppIcon.appiconset"))
-
-		// Register the task using the modern API
-		project.tasks.register("iconSync") {
-			group = "build"
-			description = "Converts and syncs Android mipmap icons to the iOS asset catalog"
-
-			doLast {
-				val implTask = project.tasks.register("_iconSyncImpl", IconSyncTask::class.java).get()
-				implTask.androidResDir.set(extension.androidResDirectory)
-				implTask.iosAssetsDir.set(extension.iosIconSetDirectory)
-				implTask.execute()
-			}
+		project.tasks.register("iconsync", IconSyncTask::class.java) {
+			group = "iOS Icon Sync"
+			description = "Converts and syncs Android mipmap icons to the iOS asset catalog."
+			androidResDir.set(project.file("composeApp/src/androidMain/res"))
+			iosAssetsDir.set(project.file("iosApp/iosApp/Assets.xcassets/AppIcon.appiconset"))
 		}
 	}
 }
@@ -87,6 +66,11 @@ abstract class IconSyncTask : DefaultTask() {
 
 	@get:OutputDirectory
 	abstract val iosAssetsDir: DirectoryProperty
+
+	init {
+		// Ensure task always runs
+		outputs.upToDateWhen { false }
+	}
 
 	@TaskAction
 	fun execute() {
@@ -215,5 +199,3 @@ abstract class IconSyncTask : DefaultTask() {
 		logger.lifecycle("--------------------------------------------------")
 	}
 }
-
-
