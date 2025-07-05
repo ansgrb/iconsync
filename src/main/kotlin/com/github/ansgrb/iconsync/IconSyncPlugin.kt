@@ -7,13 +7,15 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
+import org.gradle.process.ExecOperations
 import java.io.File
 import javax.inject.Inject
 import groovy.json.JsonOutput
+import java.io.IOException
 
 abstract class IconSyncPlugin : Plugin<Project> {
 	override fun apply(project: Project) {
-		project.tasks.register("iconsync", ConvertAndCopyIconsTask::class.java) {
+		project.tasks.register("iconsync", IconSyncTask::class.java) {
 			group = "iOS Icon Sync"
 			description = "Converts and syncs Android mipmap icons to the iOS asset catalog."
 			androidResDir.set(project.file("composeApp/src/androidMain/res"))
@@ -22,7 +24,15 @@ abstract class IconSyncPlugin : Plugin<Project> {
 	}
 }
 
-abstract class ConvertAndCopyIconsTask @Inject constructor() : DefaultTask() {
+abstract class IconSyncTask @Inject constructor(
+	private val execOperations: ExecOperations
+) : DefaultTask() {
+
+	private val colorReset = "\u001B[0m"
+	private val colorGreen = "\u001B[32m"
+	private val colorRed = "\u001B[31m"
+	private val colorYellow = "\u001B[33m"
+	private val colorBlue = "\u001B[34m"
 
 	@get:InputDirectory
 	abstract val androidResDir: Property<File>
@@ -30,7 +40,6 @@ abstract class ConvertAndCopyIconsTask @Inject constructor() : DefaultTask() {
 	@get:OutputDirectory
 	abstract val iosAssetsDir: Property<File>
 
-	// A map of the required iOS icon filenames and their corresponding pixel dimensions.
 	private val iosIcons = mapOf(
 		"Icon-App-20x20@2x.png" to 40,
 		"Icon-App-20x20@3x.png" to 60,
@@ -44,73 +53,95 @@ abstract class ConvertAndCopyIconsTask @Inject constructor() : DefaultTask() {
 
 	@TaskAction
 	fun execute() {
+		printHeader()
+
+		if (!isDwebpInstalled()) {
+			logger.error("$colorRed ❌ ERROR: 'dwebp' command not found. Please install webp tools.$colorReset")
+			logger.error("$colorYellow You can install it on macOS via Homebrew: 'brew install webp'$colorReset")
+			return
+		}
+
 		val sourceDir = androidResDir.get()
 		val destDir = iosAssetsDir.get()
 
 		if (!destDir.exists()) {
-			project.logger.warn("iOS assets directory not found at ${destDir.path}. Creating it.")
+			logger.lifecycle("   - Destination directory not found. Creating it at: ${destDir.path}")
 			destDir.mkdirs()
 		}
 
-		project.logger.lifecycle("Starting iOS icon sync. NOTE: This task requires 'dwebp' to be installed and in your PATH.")
-		project.logger.lifecycle("You can install it via Homebrew: 'brew install webp'")
-
 		val sourceIcon = findSourceIcon(sourceDir)
 		if (sourceIcon == null) {
-			project.logger.error("Could not find a suitable source icon in your androidMain/res/mipmap-* directories (e.g., ic_launcher.webp or ic_launcher_foreground.webp).")
+			logger.error("$colorRed ❌ ERROR: Could not find a suitable source icon in your androidMain/res/mipmap-* directories.$colorReset")
+			logger.error("$colorYellow   - Please ensure 'ic_launcher.webp' or 'ic_launcher_foreground.webp' exists.$colorReset")
 			return
 		}
 
-		project.logger.lifecycle("Using ${sourceIcon.absolutePath} as source for generating iOS icons.")
+		logger.lifecycle("▶️  Found source icon: ${sourceIcon.path}")
+		logger.lifecycle("--------------------------------------------------")
 
-		// Clean the destination directory of any previous PNG icons before generating new ones.
-		destDir.listFiles { _, name -> name.endsWith(".png") }?.forEach { it.delete() }
+		var generatedCount = 0
+		var failedCount = 0
 
 		iosIcons.forEach { (name, size) ->
 			val outputFile = File(destDir, name)
-			// Execute the 'dwebp' command to resize the source WebP and output as a PNG.
-			val result = project.exec {
-				commandLine(
-					"dwebp",
-					"-resize",
-					size.toString(),
-					size.toString(),
-					sourceIcon.absolutePath,
-					"-o",
-					outputFile.absolutePath
-				)
-				isIgnoreExitValue = true // Don't fail the build; just log the error.
-			}
-			if (result.exitValue != 0) {
-				project.logger.error("Failed to generate ${outputFile.name}. Is 'dwebp' installed and in your PATH?")
-			} else {
-				project.logger.lifecycle("Generated ${outputFile.name}")
+			try {
+				val result = execOperations.exec {
+					commandLine(
+						"dwebp",
+						"-resize",
+						size.toString(),
+						size.toString(),
+						sourceIcon.absolutePath,
+						"-o",
+						outputFile.absolutePath
+					)
+					isIgnoreExitValue = true
+				}
+				if (result.exitValue != 0) {
+					logger.error("$colorRed ❗ Failed to generate ${outputFile.name}.$colorReset")
+					failedCount++
+				} else {
+					logger.lifecycle("$colorGreen   ✓ Generated ${outputFile.name} ($size x $size px)$colorReset")
+					generatedCount++
+				}
+			} catch (e: IOException) {
+				logger.error("$colorRed ❗ IOException while generating ${outputFile.name}: ${e.message}$colorReset")
+				failedCount++
 			}
 		}
 
-		// Handle the 1024x1024 App Store icon separately.
-		val playstoreIcon = File(sourceDir.parentFile, "ic_launcher-playstore.png")
+		copyPlayStoreIcon(sourceDir.parentFile, destDir)
+		generateContentsJson(destDir)
+
+		printFooter(generatedCount, failedCount)
+	}
+
+	private fun isDwebpInstalled(): Boolean {
+		return try {
+			val result = execOperations.exec {
+				commandLine("which", "dwebp")
+				isIgnoreExitValue = true
+			}
+			result.exitValue == 0
+		} catch (e: IOException) {
+			false
+		}
+	}
+
+	private fun copyPlayStoreIcon(androidMainDir: File, destDir: File) {
+		val playstoreIcon = File(androidMainDir, "ic_launcher-playstore.png")
 		if (playstoreIcon.exists()) {
 			val outputFile = File(destDir, "Icon-App-1024x1024@1x.png")
 			playstoreIcon.copyTo(outputFile, overwrite = true)
-			project.logger.lifecycle("Copied Play Store icon to ${outputFile.name}")
+			logger.lifecycle("$colorGreen   ✓ Copied App Store icon (1024x1024px).$colorReset")
 		} else {
-			project.logger.warn("Play Store icon (ic_launcher-playstore.png) not found in 'androidMain'. You may need to add the App Store icon manually.")
+			logger.warn("$colorYellow   ⚠️ Play Store icon not found at 'src/androidMain/ic_launcher-playstore.png'. App Store icon will be missing.$colorReset")
 		}
-
-		generateContentsJson(destDir)
-
-		project.logger.lifecycle("Successfully synced iOS icons.")
 	}
 
-	/**
-	 * Finds the best available WebP source icon from the Android mipmap directories,
-	 * preferring the highest density.
-	 */
 	private fun findSourceIcon(sourceDir: File): File? {
 		val preferredOrder = listOf("xxxhdpi", "xxhdpi", "xhdpi", "hdpi", "mdpi")
 		for (density in preferredOrder) {
-			// Prefer the standard launcher icon, but fall back to the foreground icon.
 			val iconFile = File(sourceDir, "mipmap-$density/ic_launcher.webp")
 			if (iconFile.exists()) return iconFile
 			val foregroundIconFile = File(sourceDir, "mipmap-$density/ic_launcher_foreground.webp")
@@ -119,9 +150,6 @@ abstract class ConvertAndCopyIconsTask @Inject constructor() : DefaultTask() {
 		return null
 	}
 
-	/**
-	 * Generates the Contents.json file required by Xcode to identify the app icons.
-	 */
 	private fun generateContentsJson(destDir: File) {
 		val images = mutableListOf<Map<String, Any>>()
 
@@ -190,7 +218,6 @@ abstract class ConvertAndCopyIconsTask @Inject constructor() : DefaultTask() {
 			)
 		)
 
-		// Only include the App Store icon in Contents.json if it exists.
 		if (File(destDir, "Icon-App-1024x1024@1x.png").exists()) {
 			images.add(
 				mapOf(
@@ -209,6 +236,31 @@ abstract class ConvertAndCopyIconsTask @Inject constructor() : DefaultTask() {
 
 		val contentsJsonFile = File(destDir, "Contents.json")
 		contentsJsonFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(contents)))
-		project.logger.lifecycle("Generated Contents.json for iOS icons.")
+		logger.lifecycle("$colorGreen   ✓ Generated Contents.json file.$colorReset")
+	}
+
+	private fun printHeader() {
+		logger.lifecycle(
+			"""
+$colorBlue
+  ___           ___           ___     
+ (o o)         (o o)         (o o)    
+(  V  ) I C O N S Y N C (  V  )
+--m-m-----------m-m-----------m-m--
+$colorReset
+        """.trimIndent()
+		)
+	}
+
+	private fun printFooter(generated: Int, failed: Int) {
+		logger.lifecycle("--------------------------------------------------")
+		if (failed > 0) {
+			logger.lifecycle("$colorRed ❌ Sync finished with $failed errors.$colorReset")
+		} else {
+			logger.lifecycle("$colorGreen ✅ Sync complete! Successfully generated $generated icons.$colorReset")
+		}
+		logger.lifecycle("--------------------------------------------------")
 	}
 }
+
+
