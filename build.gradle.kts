@@ -1,6 +1,7 @@
 plugins {
 	`kotlin-dsl`
 	`maven-publish`
+	signing
 	kotlin("jvm") version "2.1.21"
 }
 
@@ -12,6 +13,8 @@ repositories {
 }
 
 dependencies {
+	implementation("com.twelvemonkeys.imageio:imageio-webp:3.12.0")
+	implementation(localGroovy())
 	testImplementation(kotlin("test"))
 }
 
