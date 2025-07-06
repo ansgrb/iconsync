@@ -28,10 +28,10 @@ Follow these simple steps to get up and running.
 
 This plugin uses the standard Android launcher icon as its source.
 
-1. In Android Studio, open the **Project** panel.
-2. Right-click on your `res` directory (usually located at `composeApp/src/androidMain/res`) and select **New** > *
-   *Image Asset**.
-3. In the **Asset Studio**, configure your app's icon.
+1. In Android Studio, open the **Resource Manager** panel.
+2. Click the plus sign **Add resources to the module** button.
+3. Select **Image Asset** from the drop menu. 
+4. In the **Configure Image Asset** windows, configure your app's icon.
 
    ![Asset Studio Screenshot](docs/new-image-asset-studio.png)
    **Important:** For best results, use a high-resolution source image (at least **1024x1024 pixels**). The plugin needs
