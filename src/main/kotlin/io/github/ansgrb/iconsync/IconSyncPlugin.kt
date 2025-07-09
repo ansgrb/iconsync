@@ -47,6 +47,7 @@ abstract class IconSyncPlugin : Plugin<Project> {
 			description = "Converts and syncs Android mipmap icons to the iOS asset catalog."
 			androidResDir.set(project.file("composeApp/src/androidMain/res"))
 			iosAssetsDir.set(project.file("iosApp/iosApp/Assets.xcassets/AppIcon.appiconset"))
+			iosAssetsDir.set(project.file("iosApp/Assets.xcassets/AppIcon.appiconset"))
 		}
 	}
 }
